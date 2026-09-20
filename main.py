@@ -1,65 +1,51 @@
 import os
-from threading import Thread
-from flask import Flask
 import discord
 from discord.ext import commands
+from flask import Flask
+from threading import Thread
 
-# --- إنشاء سيرفر Flask لإبقاء البوت شغالاً على Render ---
+# سيرفر Flask لإبقاء البوت متصلاً 24/7 على Render
 app = Flask('')
-
 
 @app.route('/')
 def home():
-  return 'Bot is online and active!'
+    return "Bot is running 24/7!"
 
-
-def run():
-  # استخدام Port الديناميكي الخاص بـ Render أو 8080 كافتراضي
-  port = int(os.environ.get('PORT', 8080))
-  app.run(host='0.0.0.0', port=port)
-
+def run_flask():
+    app.run(host='0.0.0.0', port=8080)
 
 def keep_alive():
-  t = Thread(target=run)
-  t.daemon = True
-  t.start()
+    t = Thread(target=run_flask)
+    t.start()
 
-
-# --- إعدادات ديسكورد ---
+# إعدادات ديسكورد
 intents = discord.Intents.default()
-intents.message_content = True
-
-bot = commands.Bot(command_prefix='!', intents=intents)
-
-# ID الروم الخاص بك
-CHANNEL_ID = 1550984275564961802
-
+bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
-  print(f'Logged in as {bot.user}')
+    print(f'Logged in as {bot.user.name}')
+    try:
+        # مزامنة الأوامر المائلة (Slash Commands) تلقائياً عند التشغيل
+        synced = await bot.tree.sync()
+        print(f"Synced {len(synced)} command(s)")
+    except Exception as e:
+        print(f"Error syncing commands: {e}")
 
-  # إرسال رسالة التفعيل للروم عند بدء التشغيل
-  channel = bot.get_channel(CHANNEL_ID)
-  if channel:
-    await channel.send(
-        ' البوت يعمل بنجاح الآن! اكتب الأمر `!badge` للحصول على الشارة.'
+# أمر /badge يرسل تهنئة ورابط المطالبة المباشر
+@bot.tree.command(name="badge", description="Get Active Developer Badge!")
+async def badge(interaction: discord.Interaction):
+    message = (
+        " تهانينا! تم تسجيل نشاطك بنجاح.\n\n"
+        " يمكنك المطالبة بالشارة بعد **24 إلى 48 ساعة** عبر الرابط التالي:\n"
+        "https://discord.com/developers/active-developer"
     )
+    await interaction.response.send_message(message)
 
-
-@bot.command()
-async def badge(ctx):
-  """أمر تفاعلي لتنشيط شارة Active Developer"""
-  await ctx.send(
-      ' تم تسجيل نشاط البوت بنجاح! يمكنك التوجه لموقع ديسكورد واستلام الشارة خلال 24 ساعة.'
-  )
-
-
-# تشغيل سيرفر الويب أولاً ثم البوت
-if __name__ == '__main__':
-  keep_alive()
-  token = os.environ.get('BOT_TOKEN')
-  if token:
-    bot.run(token)
-  else:
-    print('ERROR: BOT_TOKEN is missing from Environment Variables!')
+# تشغيل السيرفر والبوت
+keep_alive()
+TOKEN = os.getenv("BOT_TOKEN")
+if TOKEN:
+    bot.run(TOKEN)
+else:
+    print("ERROR: BOT_TOKEN is missing!")
